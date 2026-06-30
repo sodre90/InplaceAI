@@ -26,6 +26,7 @@ enum TranslationLanguage: String, CaseIterable, Identifiable {
     case russian
     case arabic
     case hindi
+    case hungarian
 
     var id: String { rawValue }
 

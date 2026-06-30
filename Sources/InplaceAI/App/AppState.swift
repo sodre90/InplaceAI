@@ -20,6 +20,7 @@ final class AppState: ObservableObject {
   @Published var startAtLogin: Bool
   @Published var reasoningDisabled: Bool
   @Published var maxTokens: Int
+  @Published var defaultWritingTool: WritingTool
   @Published var isProcessing = false
   @Published var lastSelection: TextSelection?
   @Published var suggestion: Suggestion?
@@ -58,6 +59,7 @@ final class AppState: ObservableObject {
     apiKey = settings.apiKey
     reasoningDisabled = settings.reasoningDisabled
     maxTokens = settings.maxTokens
+    defaultWritingTool = settings.defaultWritingTool
 
     if startAtLogin != savedStartAtLogin {
         settingsStore.save(startAtLogin: startAtLogin)
@@ -118,10 +120,15 @@ final class AppState: ObservableObject {
       .dropFirst()
       .sink { [weak self] in self?.settingsStore.save(maxTokens: $0) }
       .store(in: &cancellables)
+
+    $defaultWritingTool
+      .dropFirst()
+      .sink { [weak self] in self?.settingsStore.save(defaultWritingTool: $0) }
+      .store(in: &cancellables)
   }
 
   func triggerRewrite() {
-    startWritingTools(with: .custom)
+    startWritingTools(with: defaultWritingTool)
   }
 
   func triggerExplain() {

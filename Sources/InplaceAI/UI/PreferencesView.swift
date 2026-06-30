@@ -241,6 +241,16 @@ struct PreferencesView: View {
     private var promptSection: some View {
         SettingsCard(title: "Prompt", symbolName: "text.badge.checkmark") {
             VStack(alignment: .leading, spacing: 12) {
+                FieldGroup(title: "Default Action", help: "Writing tool that runs when you trigger InplaceAI (e.g. ⌥⇧R). \"Custom\" uses the preset below.") {
+                    Picker("Default Action", selection: $appState.defaultWritingTool) {
+                        ForEach(WritingTool.allCases) { tool in
+                            Text(tool.title).tag(tool)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                }
+
                 FieldGroup(title: "Preset", help: "Choose a preset or customize your own rewrite instruction. The prompt is saved automatically.") {
                     Picker("Preset", selection: $selectedPresetID) {
                         ForEach(PromptLibrary.presets) { preset in

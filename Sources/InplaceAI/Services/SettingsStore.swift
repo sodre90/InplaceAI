@@ -11,6 +11,7 @@ struct AppSettings {
     var startAtLogin: Bool
     var reasoningDisabled: Bool
     var maxTokens: Int
+    var defaultWritingTool: WritingTool
 }
 
 enum TranslationLanguage: String, CaseIterable, Identifiable {
@@ -71,6 +72,7 @@ struct SettingsStore {
         static let startAtLogin = "settings.startAtLogin"
         static let reasoningDisabled = "settings.reasoningDisabled"
         static let maxTokens = "settings.maxTokens"
+        static let defaultWritingTool = "settings.defaultWritingTool"
     }
 
     private static let keychainService = "com.inplaceai.desktop"
@@ -120,6 +122,9 @@ struct SettingsStore {
         // Default to disabled (faster, no thinking trace) when never set.
         let reasoningDisabled = dict?[Keys.reasoningDisabled] != "false"
         let maxTokens = dict?[Keys.maxTokens].flatMap(Int.init) ?? 1000
+        let defaultWritingTool = WritingTool(
+            rawValue: dict?[Keys.defaultWritingTool] ?? ""
+        ) ?? .custom
         return AppSettings(
             provider: provider,
             baseURL: baseURL,
@@ -130,7 +135,8 @@ struct SettingsStore {
             apiKey: apiKey,
             startAtLogin: startAtLogin,
             reasoningDisabled: reasoningDisabled,
-            maxTokens: maxTokens
+            maxTokens: maxTokens,
+            defaultWritingTool: defaultWritingTool
         )
     }
 
@@ -220,6 +226,12 @@ struct SettingsStore {
     func save(maxTokens: Int) {
         var dict = loadDict() ?? [:]
         dict[Keys.maxTokens] = String(maxTokens)
+        save(dict)
+    }
+
+    func save(defaultWritingTool: WritingTool) {
+        var dict = loadDict() ?? [:]
+        dict[Keys.defaultWritingTool] = defaultWritingTool.rawValue
         save(dict)
     }
 

@@ -121,7 +121,7 @@ final class AppState: ObservableObject {
   }
 
   func triggerRewrite() {
-    startWritingTools(with: .proofread)
+    startWritingTools(with: .custom)
   }
 
   func triggerExplain() {

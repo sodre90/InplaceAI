@@ -20,15 +20,18 @@ final class SelectionMonitor {
       throw SelectionError.accessibilityDenied
     }
 
-    let element = try focusedElement()
-    let sourceBundleIdentifier = bundleIdentifier(for: element)
+    // Browsers often have nothing focused at the AX level when the selection
+    // lives in page content rather than a text field, so don't fail just
+    // because there's no focused element — fall through to clipboard capture.
+    let element = try? focusedElement()
+    let sourceBundleIdentifier = element.flatMap { bundleIdentifier(for: $0) }
     var selection: (text: String, range: CFRange?)?
 
     if TextSelection.isBrowserBundleIdentifier(sourceBundleIdentifier) {
       selection = try captureSelectionViaClipboard(focusedElement: element)
     }
 
-    if selection == nil {
+    if selection == nil, let element {
       selection = try selectedTextAndRange(for: element)
     }
 
@@ -44,7 +47,12 @@ final class SelectionMonitor {
       throw SelectionError.emptySelection
     }
 
-    let frame = selection.range.flatMap { boundsForRange($0, in: element) } ?? frameForElement(element)
+    let frame: CGRect?
+    if let range = selection.range, let element {
+      frame = boundsForRange(range, in: element)
+    } else {
+      frame = element.flatMap { frameForElement($0) }
+    }
     return TextSelection(
       text: selection.text,
       frame: frame,

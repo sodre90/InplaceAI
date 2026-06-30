@@ -14,8 +14,24 @@ APP_NAME="InplaceAI"
 DIST_DIR="${DIST_DIR:-dist}"
 DMG_NAME="${DMG_NAME:-${APP_NAME}.dmg}"
 BUILD_ARCHS="${BUILD_ARCHS:---arch arm64}"
-CODESIGN_ID="${CODESIGN_ID:--}"
 APP_VERSION="${APP_VERSION:-1.0}"
+
+# Local self-signed identity (see scripts/create_signing_cert.sh). Signing with
+# it gives a stable Designated Requirement so the macOS Accessibility grant
+# survives rebuilds, unlike ad-hoc "-".
+LOCAL_SIGN_IDENTITY="${LOCAL_SIGN_IDENTITY:-InplaceAI Local Signing}"
+SIGN_KEYCHAIN="${SIGN_KEYCHAIN:-$HOME/Library/Keychains/inplaceai-signing.keychain-db}"
+SIGN_KEYCHAIN_PW="${SIGN_KEYCHAIN_PW:-inplaceai}"
+
+# Resolve the signing identity. An explicit CODESIGN_ID always wins. Otherwise
+# prefer the local self-signed identity when it exists, falling back to ad-hoc.
+if [[ -z "${CODESIGN_ID:-}" ]]; then
+    if [[ -f "$SIGN_KEYCHAIN" ]] && security find-identity -p codesigning "$SIGN_KEYCHAIN" 2>/dev/null | grep -qF "$LOCAL_SIGN_IDENTITY"; then
+        CODESIGN_ID="$LOCAL_SIGN_IDENTITY"
+    else
+        CODESIGN_ID="-"
+    fi
+fi
 ICON_SRC="${ICON_SRC:-${ROOT}/Assets/InplaceAIIcon.svg}"
 ICON_DST="${ICON_DST:-${ROOT}/Sources/InplaceAI/Resources/AppIcon.icns}"
 
@@ -169,15 +185,19 @@ if [[ ! -d "$STAGED_APP" ]]; then
     exit 1
 fi
 
-if [[ -n "${CODESIGN_ID:-}" ]]; then
-    echo "Codesigning with '${CODESIGN_ID}'..."
-    if [[ "$CODESIGN_ID" == "-" ]]; then
-        codesign --deep --force --sign "$CODESIGN_ID" --identifier com.inplaceai.desktop "$STAGED_APP"
-    else
-        codesign --deep --force --options runtime --timestamp --sign "$CODESIGN_ID" "$STAGED_APP"
-    fi
+echo "Codesigning with '${CODESIGN_ID}'..."
+if [[ "$CODESIGN_ID" == "-" ]]; then
+    echo "  (ad-hoc: the Accessibility grant will NOT survive rebuilds — run scripts/create_signing_cert.sh once for a stable identity)"
+    codesign --deep --force --sign - --identifier com.inplaceai.desktop "$STAGED_APP"
+elif [[ "$CODESIGN_ID" == "$LOCAL_SIGN_IDENTITY" ]]; then
+    # Local self-signed identity: unlock its keychain, sign without timestamp /
+    # hardened runtime (those are only needed for notarized distribution).
+    security unlock-keychain -p "$SIGN_KEYCHAIN_PW" "$SIGN_KEYCHAIN" 2>/dev/null || true
+    codesign --deep --force --sign "$CODESIGN_ID" --keychain "$SIGN_KEYCHAIN" \
+        --identifier com.inplaceai.desktop "$STAGED_APP"
 else
-    echo "Skipping codesign (set CODESIGN_ID to sign for distribution)."
+    # Developer ID / distribution signing.
+    codesign --deep --force --options runtime --timestamp --sign "$CODESIGN_ID" "$STAGED_APP"
 fi
 
 if [[ -n "${NOTARY_PROFILE:-}" ]]; then

@@ -14,6 +14,8 @@ struct OpenAIService {
         apiKey: String,
         model: String,
         baseURL: String,
+        reasoningDisabled: Bool = false,
+        maxTokens: Int = 1000,
         promptTitle: String? = nil,
         tool: WritingTool? = nil
     ) async throws -> Suggestion {
@@ -22,7 +24,9 @@ struct OpenAIService {
             instruction: instruction,
             apiKey: apiKey,
             model: model,
-            baseURL: baseURL
+            baseURL: baseURL,
+            reasoningDisabled: reasoningDisabled,
+            maxTokens: maxTokens
         )
 
         let (data, response) = try await session.data(for: request)
@@ -53,6 +57,8 @@ struct OpenAIService {
         apiKey: String,
         model: String,
         baseURL: String,
+        reasoningDisabled: Bool = false,
+        maxTokens: Int = 1000,
         promptTitle: String? = nil,
         tool: WritingTool? = nil
     ) throws -> Suggestion {
@@ -61,7 +67,9 @@ struct OpenAIService {
             instruction: instruction,
             apiKey: apiKey,
             model: model,
-            baseURL: baseURL
+            baseURL: baseURL,
+            reasoningDisabled: reasoningDisabled,
+            maxTokens: maxTokens
         )
 
         let semaphore = DispatchSemaphore(value: 0)
@@ -119,7 +127,9 @@ struct OpenAIService {
         instruction: String,
         apiKey: String,
         model: String,
-        baseURL: String
+        baseURL: String,
+        reasoningDisabled: Bool = false,
+        maxTokens: Int = 1000
     ) throws -> URLRequest {
         var trimmed = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.hasSuffix("/") {
@@ -151,7 +161,9 @@ struct OpenAIService {
                 \(text)
                 """)
             ],
-            temperature: 1.0
+            temperature: 1.0,
+            maxTokens: maxTokens,
+            chatTemplateKwargs: .init(enableThinking: !reasoningDisabled)
         )
 
         request.httpBody = try JSONEncoder().encode(payload)
@@ -230,9 +242,23 @@ private struct OpenAIRequest: Encodable {
         let content: String
     }
 
+    /// The `enable_thinking` toggle local OpenAI-compatible servers
+    /// (vLLM/SGLang/llama.cpp, e.g. for Qwen3-style models) use to suppress
+    /// the model's thinking/reasoning trace. Real OpenAI's API ignores this
+    /// field, so it only affects local-LLM use.
+    struct ChatTemplateKwargs: Encodable {
+        let enableThinking: Bool
+
+        private enum CodingKeys: String, CodingKey {
+            case enableThinking = "enable_thinking"
+        }
+    }
+
     let model: String
     let messages: [Message]
     let temperature: Double?
+    let maxTokens: Int
+    let chatTemplateKwargs: ChatTemplateKwargs
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
@@ -241,12 +267,16 @@ private struct OpenAIRequest: Encodable {
         if let temperature {
             try container.encode(temperature, forKey: .temperature)
         }
+        try container.encode(maxTokens, forKey: .maxTokens)
+        try container.encode(chatTemplateKwargs, forKey: .chatTemplateKwargs)
     }
 
     private enum CodingKeys: String, CodingKey {
         case model
         case messages
         case temperature
+        case maxTokens = "max_tokens"
+        case chatTemplateKwargs = "chat_template_kwargs"
     }
 }
 

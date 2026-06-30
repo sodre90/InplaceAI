@@ -9,6 +9,8 @@ struct AppSettings {
     var secondaryTranslationLanguage: TranslationLanguage
     var apiKey: String
     var startAtLogin: Bool
+    var reasoningDisabled: Bool
+    var maxTokens: Int
 }
 
 enum TranslationLanguage: String, CaseIterable, Identifiable {
@@ -66,6 +68,8 @@ struct SettingsStore {
         static let secondaryTranslationLanguage = "settings.translation.secondaryLanguage"
         static let apiKey = "settings.apiKey"
         static let startAtLogin = "settings.startAtLogin"
+        static let reasoningDisabled = "settings.reasoningDisabled"
+        static let maxTokens = "settings.maxTokens"
     }
 
     private static let keychainService = "com.inplaceai.desktop"
@@ -112,6 +116,9 @@ struct SettingsStore {
         ) ?? .chinese
         let apiKey = loadAPIKey(migratingFrom: dict)
         let startAtLogin = dict?[Keys.startAtLogin] == "true"
+        // Default to disabled (faster, no thinking trace) when never set.
+        let reasoningDisabled = dict?[Keys.reasoningDisabled] != "false"
+        let maxTokens = dict?[Keys.maxTokens].flatMap(Int.init) ?? 1000
         return AppSettings(
             provider: provider,
             baseURL: baseURL,
@@ -120,7 +127,9 @@ struct SettingsStore {
             primaryTranslationLanguage: primaryTranslationLanguage,
             secondaryTranslationLanguage: secondaryTranslationLanguage,
             apiKey: apiKey,
-            startAtLogin: startAtLogin
+            startAtLogin: startAtLogin,
+            reasoningDisabled: reasoningDisabled,
+            maxTokens: maxTokens
         )
     }
 
@@ -198,6 +207,18 @@ struct SettingsStore {
     func save(startAtLogin: Bool) {
         var dict = loadDict() ?? [:]
         dict[Keys.startAtLogin] = startAtLogin ? "true" : "false"
+        save(dict)
+    }
+
+    func save(reasoningDisabled: Bool) {
+        var dict = loadDict() ?? [:]
+        dict[Keys.reasoningDisabled] = reasoningDisabled ? "true" : "false"
+        save(dict)
+    }
+
+    func save(maxTokens: Int) {
+        var dict = loadDict() ?? [:]
+        dict[Keys.maxTokens] = String(maxTokens)
         save(dict)
     }
 

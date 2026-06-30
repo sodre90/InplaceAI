@@ -111,6 +111,7 @@ struct PreferencesView: View {
             VStack(alignment: .leading, spacing: 18) {
                 hero
                 providerSection
+                aiSettingsSection
                 promptSection
                 translationSection
                 securitySection
@@ -215,6 +216,24 @@ struct PreferencesView: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
                     .disableAutocorrection(true)
+            }
+        }
+    }
+
+    private var aiSettingsSection: some View {
+        SettingsCard(title: "AI Settings", symbolName: "wand.and.sparkles") {
+            VStack(alignment: .leading, spacing: 12) {
+                Toggle("Disable Reasoning (faster)", isOn: $appState.reasoningDisabled)
+                Text("When disabled, the AI won't use reasoning mode. Recommended for most writing tasks.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Divider()
+
+                Stepper("Max tokens: \(appState.maxTokens)", value: $appState.maxTokens, in: 100...8000, step: 100)
+                Text("Maximum length of the rewritten response. Increase for longer texts.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
     }

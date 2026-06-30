@@ -18,6 +18,8 @@ final class AppState: ObservableObject {
   @Published var primaryTranslationLanguage: TranslationLanguage
   @Published var secondaryTranslationLanguage: TranslationLanguage
   @Published var startAtLogin: Bool
+  @Published var reasoningDisabled: Bool
+  @Published var maxTokens: Int
   @Published var isProcessing = false
   @Published var lastSelection: TextSelection?
   @Published var suggestion: Suggestion?
@@ -54,7 +56,9 @@ final class AppState: ObservableObject {
     let savedStartAtLogin = settings.startAtLogin
     startAtLogin = launchController.isStartAtLogin() ? true : savedStartAtLogin
     apiKey = settings.apiKey
-    
+    reasoningDisabled = settings.reasoningDisabled
+    maxTokens = settings.maxTokens
+
     if startAtLogin != savedStartAtLogin {
         settingsStore.save(startAtLogin: startAtLogin)
     }
@@ -103,6 +107,16 @@ final class AppState: ObservableObject {
         self?.settingsStore.save(startAtLogin: $0)
         self?.launchController.setStartAtLogin($0)
       }
+      .store(in: &cancellables)
+
+    $reasoningDisabled
+      .dropFirst()
+      .sink { [weak self] in self?.settingsStore.save(reasoningDisabled: $0) }
+      .store(in: &cancellables)
+
+    $maxTokens
+      .dropFirst()
+      .sink { [weak self] in self?.settingsStore.save(maxTokens: $0) }
       .store(in: &cancellables)
   }
 
@@ -292,6 +306,8 @@ final class AppState: ObservableObject {
         apiKey: apiKey,
         model: model,
         baseURL: baseURL,
+        reasoningDisabled: reasoningDisabled,
+        maxTokens: maxTokens,
         promptTitle: tool.title,
         tool: tool
       )
@@ -348,6 +364,8 @@ final class AppState: ObservableObject {
         apiKey: apiKey,
         model: model,
         baseURL: baseURL,
+        reasoningDisabled: reasoningDisabled,
+        maxTokens: maxTokens,
         promptTitle: "Explain",
         tool: nil
       )

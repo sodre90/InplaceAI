@@ -38,6 +38,8 @@ final class TextServiceProvider: NSObject {
                 apiKey: settings.apiKey,
                 model: settings.model,
                 baseURL: settings.baseURL,
+                reasoningDisabled: settings.reasoningDisabled,
+                maxTokens: settings.maxTokens,
                 promptTitle: tool.title,
                 tool: tool
             )

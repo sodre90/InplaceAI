@@ -23,7 +23,21 @@ KEYCHAIN_PW="${SIGN_KEYCHAIN_PW:-inplaceai}"
 if [[ -f "$KEYCHAIN" ]] && security find-identity -p codesigning "$KEYCHAIN" 2>/dev/null | grep -qF "$IDENTITY"; then
     echo "Signing identity '$IDENTITY' already present in:"
     echo "  $KEYCHAIN"
-    echo "Nothing to do (kept to preserve the existing Accessibility grant)."
+    echo "Keeping it (regenerating would change the leaf-cert hash and break the"
+    echo "existing Accessibility grant)."
+
+    # Keychains created before the codesign: partition was added still prompt on
+    # every signing run. Refresh the partition list so they stop.
+    if security set-key-partition-list -S apple-tool:,apple:,codesign: -s \
+        -k "$KEYCHAIN_PW" "$KEYCHAIN" >/dev/null 2>&1; then
+        echo "Refreshed the key partition list; codesign will not prompt."
+    else
+        echo
+        echo "Could not refresh the key partition list — SIGN_KEYCHAIN_PW does not match"
+        echo "this keychain, so codesign may keep prompting. To fix it, run:"
+        echo "  security set-key-partition-list -S apple-tool:,apple:,codesign: -s \\"
+        echo "    -k '<keychain password>' '$KEYCHAIN'"
+    fi
     exit 0
 fi
 
@@ -60,8 +74,12 @@ fi
 
 security unlock-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN"
 security import "$TMP/id.p12" -k "$KEYCHAIN" -P tmppw -T /usr/bin/codesign -A >/dev/null
-# Allow codesign to use the key without an interactive keychain prompt.
-security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PW" "$KEYCHAIN" >/dev/null 2>&1
+# Allow codesign to use the key without an interactive keychain prompt. The
+# codesign: partition is required alongside apple:/apple-tool: — importing with
+# `-T /usr/bin/codesign` alone still leaves macOS prompting on first use.
+if ! security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PW" "$KEYCHAIN" >/dev/null 2>&1; then
+    echo "Warning: could not set the key partition list; codesign may prompt on first use." >&2
+fi
 
 # codesign locates a signing identity by name via the user keychain SEARCH LIST
 # (the --keychain flag alone is not sufficient), so add ours if it isn't there.

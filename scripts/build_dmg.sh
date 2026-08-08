@@ -192,7 +192,16 @@ if [[ "$CODESIGN_ID" == "-" ]]; then
 elif [[ "$CODESIGN_ID" == "$LOCAL_SIGN_IDENTITY" ]]; then
     # Local self-signed identity: unlock its keychain, sign without timestamp /
     # hardened runtime (those are only needed for notarized distribution).
-    security unlock-keychain -p "$SIGN_KEYCHAIN_PW" "$SIGN_KEYCHAIN" 2>/dev/null || true
+    #
+    # A failed unlock is reported rather than ignored: codesign would otherwise
+    # fail with the opaque 'errSecInternalComponent', which reads like a signing
+    # bug rather than a wrong keychain password. The build still continues, since
+    # macOS falls back to prompting for the password interactively.
+    if ! security unlock-keychain -p "$SIGN_KEYCHAIN_PW" "$SIGN_KEYCHAIN" 2>/dev/null; then
+        echo "  Warning: '$SIGN_KEYCHAIN' did not unlock with the current SIGN_KEYCHAIN_PW."
+        echo "  macOS will prompt for it — tick 'Always Allow' to stop the prompt recurring."
+        echo "  Set SIGN_KEYCHAIN_PW to the correct password to keep the build non-interactive."
+    fi
     codesign --deep --force --sign "$CODESIGN_ID" --keychain "$SIGN_KEYCHAIN" \
         --identifier com.inplaceai.desktop "$STAGED_APP"
 else

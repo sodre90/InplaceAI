@@ -163,6 +163,7 @@ struct OpenAIService {
             ],
             temperature: 1.0,
             maxTokens: maxTokens,
+            reasoningEffort: reasoningDisabled ? "none" : nil,
             chatTemplateKwargs: .init(enableThinking: !reasoningDisabled)
         )
 
@@ -243,9 +244,11 @@ private struct OpenAIRequest: Encodable {
     }
 
     /// The `enable_thinking` toggle local OpenAI-compatible servers
-    /// (vLLM/SGLang/llama.cpp, e.g. for Qwen3-style models) use to suppress
-    /// the model's thinking/reasoning trace. Real OpenAI's API ignores this
-    /// field, so it only affects local-LLM use.
+    /// (vLLM/SGLang/llama.cpp, e.g. for Qwen3-style models) forward to the
+    /// model's Jinja chat template to suppress its thinking trace. Must stay a
+    /// JSON boolean: llama.cpp rejects the string form outright with
+    /// `invalid type for "enable_thinking" (expected boolean, got string)`, and
+    /// Qwen3-style templates test it with `is false`. Real OpenAI ignores it.
     struct ChatTemplateKwargs: Encodable {
         let enableThinking: Bool
 
@@ -258,6 +261,9 @@ private struct OpenAIRequest: Encodable {
     let messages: [Message]
     let temperature: Double?
     let maxTokens: Int
+    /// Only meaningful as `"none"`, the OpenAI-standard way to ask a server to
+    /// skip reasoning for servers whose chat template has no `enable_thinking`.
+    let reasoningEffort: String?
     let chatTemplateKwargs: ChatTemplateKwargs
 
     func encode(to encoder: Encoder) throws {
@@ -268,6 +274,7 @@ private struct OpenAIRequest: Encodable {
             try container.encode(temperature, forKey: .temperature)
         }
         try container.encode(maxTokens, forKey: .maxTokens)
+        try container.encodeIfPresent(reasoningEffort, forKey: .reasoningEffort)
         try container.encode(chatTemplateKwargs, forKey: .chatTemplateKwargs)
     }
 
@@ -276,6 +283,7 @@ private struct OpenAIRequest: Encodable {
         case messages
         case temperature
         case maxTokens = "max_tokens"
+        case reasoningEffort = "reasoning_effort"
         case chatTemplateKwargs = "chat_template_kwargs"
     }
 }
